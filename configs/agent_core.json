@@ -1,0 +1,142 @@
+{
+  "project": "agent2027",
+  "experiment_name": "core",
+  "description": "Core grid: 50 SWE-bench Lite issues (localizability rule of the earlier pilot, the 20 pilot issues included), LLM Baseline on Claude Sonnet 4.6 and GPT-4o, the 6 transformations of the earlier pilot with boundary-preserving reordering (v3), original + 5 repeats per issue and backend.",
+  "execution_mode": "real",
+  "agents": [
+    {
+      "name": "llm_baseline_claude",
+      "version": "1.0",
+      "params": {
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-6",
+        "temperature": 0.0,
+        "max_tokens": 4096,
+        "timeout_seconds": 120,
+        "cost_cap_usd": 0.5
+      }
+    },
+    {
+      "name": "llm_baseline_gpt4o",
+      "version": "1.0",
+      "params": {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "temperature": 0.0,
+        "max_tokens": 4096,
+        "timeout_seconds": 120,
+        "cost_cap_usd": 0.5
+      }
+    }
+  ],
+  "issues": {
+    "source": "swebench_lite",
+    "issue_ids": [
+      "astropy__astropy-12907",
+      "astropy__astropy-14365",
+      "astropy__astropy-7746",
+      "django__django-11019",
+      "django__django-11848",
+      "django__django-12453",
+      "django__django-12700",
+      "django__django-12708",
+      "django__django-13321",
+      "django__django-13590",
+      "django__django-13660",
+      "django__django-14855",
+      "django__django-15347",
+      "django__django-15814",
+      "django__django-16255",
+      "django__django-16379",
+      "django__django-16873",
+      "matplotlib__matplotlib-22711",
+      "matplotlib__matplotlib-23476",
+      "matplotlib__matplotlib-23563",
+      "matplotlib__matplotlib-23964",
+      "matplotlib__matplotlib-24149",
+      "matplotlib__matplotlib-24970",
+      "matplotlib__matplotlib-25079",
+      "matplotlib__matplotlib-25442",
+      "matplotlib__matplotlib-25498",
+      "mwaskom__seaborn-3010",
+      "mwaskom__seaborn-3190",
+      "psf__requests-2148",
+      "psf__requests-2317",
+      "pylint-dev__pylint-6506",
+      "pylint-dev__pylint-7993",
+      "pytest-dev__pytest-11143",
+      "pytest-dev__pytest-7373",
+      "scikit-learn__scikit-learn-10508",
+      "scikit-learn__scikit-learn-13439",
+      "scikit-learn__scikit-learn-14087",
+      "scikit-learn__scikit-learn-14983",
+      "scikit-learn__scikit-learn-25638",
+      "sympy__sympy-14396",
+      "sympy__sympy-14817",
+      "sympy__sympy-15678",
+      "sympy__sympy-16106",
+      "sympy__sympy-17655",
+      "sympy__sympy-18057",
+      "sympy__sympy-20049",
+      "sympy__sympy-22714",
+      "sympy__sympy-23117",
+      "sympy__sympy-24102",
+      "sympy__sympy-24152"
+    ]
+  },
+  "transformations": [
+    {
+      "name": "paraphrase",
+      "enabled": true,
+      "version": "5",
+      "params": {}
+    },
+    {
+      "name": "verbosity_reduction",
+      "enabled": true,
+      "version": "5",
+      "params": {
+        "target_ratio": 0.5
+      }
+    },
+    {
+      "name": "typo_injection",
+      "enabled": true,
+      "version": "2",
+      "params": {
+        "error_rate": 0.02,
+        "seed": 42
+      }
+    },
+    {
+      "name": "reordering",
+      "enabled": true,
+      "version": "3",
+      "params": {
+        "seed": 42
+      }
+    },
+    {
+      "name": "paragraph_to_structured",
+      "enabled": true,
+      "version": "6",
+      "params": {}
+    },
+    {
+      "name": "neutralize_emotional",
+      "enabled": true,
+      "version": "5",
+      "params": {}
+    }
+  ],
+  "runs_per_variant": 1,
+  "control_repeats": 5,
+  "cost_limit_usd": 15.0,
+  "estimate": {
+    "cost_per_run_usd": {
+      "claude-sonnet-4-6": 0.0096,
+      "gpt-4o": 0.00486
+    },
+    "source": "mean cost of the paid runs of the earlier pilot (Claude Sonnet 4.6: 148 runs, $1.4213; GPT-4o: 148 runs, $0.7194), same prompt and settings, recomputed from that pilot's run records"
+  }
+}

@@ -1,0 +1,16 @@
+% rq1_backends.tex: written by paper_analysis.py with rq1_backends.csv; do not edit by hand.
+\begin{table}[t]
+\centering
+\caption{RQ1: Claude minus GPT-4o, paired by issue (50 issues): mean difference, 95\% bootstrap CI (issues resampled), Wilcoxon signed-rank $p$, BH $q$, rank-biserial $r$.}
+\label{tab:rq1_backends}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lrrrrr@{}}
+\toprule
+Measure & $\Delta$ & 95\% CI & $p$ & $q$ & $r$ \\
+\midrule
+Repeat similarity & 0.047 & [$-$0.024, 0.118] & 0.218 & 0.218 & 0.20 \\
+Envelope width & $-$0.084 & [$-$0.179, 0.013] & 0.079 & 0.159 & $-$0.29 \\
+\bottomrule
+\end{tabular*}
+\end{table}

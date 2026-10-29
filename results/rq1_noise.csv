@@ -1,0 +1,3 @@
+backend,issues,runs_per_issue,localized_6of6,localized_0of6,noisy_issues,repeat_similarity_median,repeat_similarity_q1,repeat_similarity_q3,repeat_similarity_mean,pair_similarity_median,pair_similarity_q1,pair_similarity_q3,pairs,identical_pairs_bytes,identical_pairs_lines,control_flips,control_pairs,control_flip_rate,envelope_width_mean,envelope_width_median
+Claude Sonnet 4.6,50,6.0,46,1,3,0.8626284991765287,0.6046521095177777,0.9977011494252874,0.7844563786393338,0.953125,0.5729390258285174,1.0,750,274,337,13,250,0.052,0.34730145171431426,0.29321065760456966
+GPT-4o,50,6.0,43,4,3,0.7254521967512187,0.6279248949990965,0.8874559504373529,0.7370902384278202,0.7767761927822328,0.5252159061613818,1.0,750,90,211,4,250,0.016,0.43122299300405154,0.4687418936446174

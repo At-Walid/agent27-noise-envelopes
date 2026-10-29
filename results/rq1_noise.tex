@@ -1,0 +1,24 @@
+% rq1_noise.tex: written by paper_analysis.py with rq1_noise.csv; do not edit by hand.
+\begin{table}[t]
+\centering
+\caption{RQ1: run-to-run noise of the 6 runs of each original issue (50 issues per backend). Repeat similarity: per issue, the mean changed-line similarity of the 15 pairs of runs; median and interquartile range over the issues.}
+\label{tab:rq1_noise}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lrr@{}}
+\toprule
+ & Claude & GPT-4o \\
+\midrule
+Issues & 50 & 50 \\
+Localized in all 6 runs & 46 & 43 \\
+Localized in none of the 6 & 1 & 4 \\
+Noisy (the 6 runs disagree) & 3 & 3 \\
+Repeat similarity, median & 0.863 & 0.725 \\
+\quad IQR & [0.605, 0.998] & [0.628, 0.887] \\
+Byte-identical repeat pairs & 274/750 (36.5\%) & 90/750 (12.0\%) \\
+Same changed lines (sim.\ = 1) & 337/750 (44.9\%) & 211/750 (28.1\%) \\
+Repeats flipping vs.\ first run & 13/250 (5.2\%) & 4/250 (1.6\%) \\
+Envelope width, mean & 0.347 & 0.431 \\
+\bottomrule
+\end{tabular*}
+\end{table}

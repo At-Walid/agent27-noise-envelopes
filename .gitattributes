@@ -1,0 +1,4 @@
+# Every file is stored and checked out byte for byte (SHA256SUMS): the issue texts in
+# data/variants.csv keep their CRLF line breaks, whatever core.autocrlf is.
+* -text
+*.pdf binary

@@ -1,0 +1,7 @@
+backend,issue_id,outcomes,localized,repeat_similarity
+Claude Sonnet 4.6,matplotlib__matplotlib-23476,1 0 0 0 0 0,1,0.5512440758013462
+Claude Sonnet 4.6,matplotlib__matplotlib-25079,1 0 0 0 0 0,1,0.5265717045075997
+Claude Sonnet 4.6,sympy__sympy-18057,1 1 1 0 0 0,3,0.6209542720100953
+GPT-4o,matplotlib__matplotlib-25079,0 0 0 1 0 0,1,0.5065871012294598
+GPT-4o,pylint-dev__pylint-6506,0 0 0 1 0 0,1,0.9780645596167664
+GPT-4o,sympy__sympy-22714,0 0 1 0 1 0,2,0.518580292402604

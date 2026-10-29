@@ -1,0 +1,28 @@
+% rq2_envelope.tex: written by paper_analysis.py with rq2_envelope.csv; do not edit by hand.
+\begin{table}[t]
+\centering
+\caption{RQ2: deviation of each transformation from the noise envelope, paired by issue. $\Delta$: mean over issues of the variant's mean similarity to the 6 original runs minus the envelope mean (the mean of their 15 pair similarities); 95\% bootstrap CI (issues resampled); BH $q$ over the RQ2 family (this method and the single-repeat method with the first repeat). Outside: variants with $z<-2$. G/L: outcome flips on non-noisy issues, gains/losses.}
+\label{tab:rq2_envelope}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lrrrrrr@{}}
+\toprule
+Transformation & $n$ & $\Delta$ & 95\% CI & $q$ & Outside & G/L \\
+\midrule
+\multicolumn{7}{@{}l}{\emph{Claude Sonnet 4.6}} \\
+Typo injection & 50 & $-$0.105 & [$-$0.165, $-$0.048] & 0.006 & 9/50 & 1/0 \\
+Reordering & 48 & $-$0.148 & [$-$0.208, $-$0.092] & $<$0.001 & 9/48 & 0/1 \\
+Paraphrase & 48 & $-$0.135 & [$-$0.200, $-$0.074] & 0.002 & 9/48 & 0/0 \\
+Verbosity red. & 40 & $-$0.169 & [$-$0.235, $-$0.104] & $<$0.001 & 11/40 & 0/0 \\
+Para.\,$\to$\,struct. & 40 & $-$0.183 & [$-$0.261, $-$0.111] & $<$0.001 & 10/40 & 0/1 \\
+Neutralize emot. & 40 & $-$0.106 & [$-$0.178, $-$0.041] & 0.021 & 5/40 & 0/0 \\
+\multicolumn{7}{@{}l}{\emph{GPT-4o}} \\
+Typo injection & 49 & $-$0.074 & [$-$0.122, $-$0.030] & 0.070 & 7/49 & 0/0 \\
+Reordering & 48 & $-$0.143 & [$-$0.205, $-$0.086] & $<$0.001 & 10/48 & 3/1 \\
+Paraphrase & 48 & $-$0.146 & [$-$0.199, $-$0.098] & $<$0.001 & 13/48 & 2/1 \\
+Verbosity red. & 39 & $-$0.124 & [$-$0.185, $-$0.066] & 0.005 & 6/39 & 1/1 \\
+Para.\,$\to$\,struct. & 40 & $-$0.140 & [$-$0.194, $-$0.085] & $<$0.001 & 9/40 & 1/0 \\
+Neutralize emot. & 40 & $-$0.115 & [$-$0.177, $-$0.061] & 0.001 & 7/40 & 1/0 \\
+\bottomrule
+\end{tabular*}
+\end{table}

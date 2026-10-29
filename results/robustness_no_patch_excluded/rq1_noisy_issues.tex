@@ -1,0 +1,20 @@
+% rq1_noisy_issues.tex: written by paper_analysis.py with rq1_noisy_issues.csv; do not edit by hand.
+\begin{table}[t]
+\centering
+\caption{RQ1: the noisy issues, whose 6 original runs disagree on localization (1: the patch modifies the gold file; runs in order).}
+\label{tab:rq1_noisy_issues}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}llcr@{}}
+\toprule
+Backend & Issue & Runs 1--6 & Repeat sim. \\
+\midrule
+Claude & matplotlib\_\_matplotlib-23476 & 1 0 0 0 0 0 & 0.551 \\
+Claude & matplotlib\_\_matplotlib-25079 & 1 0 0 0 0 0 & 0.527 \\
+Claude & sympy\_\_sympy-18057 & 1 1 1 0 0 0 & 0.621 \\
+GPT-4o & matplotlib\_\_matplotlib-25079 & 0 0 0 1 0 0 & 0.507 \\
+GPT-4o & pylint-dev\_\_pylint-6506 & 0 0 0 1 0 0 & 0.978 \\
+GPT-4o & sympy\_\_sympy-22714 & 0 0 1 0 1 0 & 0.519 \\
+\bottomrule
+\end{tabular*}
+\end{table}

@@ -1,0 +1,28 @@
+% rq2_conclusion_stability.tex: written by paper_analysis.py with rq2_conclusion_stability.csv; do not edit by hand.
+\begin{table}[t]
+\centering
+\caption{RQ2: conclusion stability. The single-repeat estimate (variant vs.\ the first run, minus repeat $r$ vs.\ the first run; mean over issues) with each of the 5 repeats $r=1..5$ of the first run. $^{*}$: the 95\% CI excludes zero. $^\dagger$: the verdict changes with the repeat used.}
+\label{tab:rq2_conclusion_stability}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lrrrrr@{}}
+\toprule
+Transformation & $r=1$ & $r=2$ & $r=3$ & $r=4$ & $r=5$ \\
+\midrule
+\multicolumn{6}{@{}l}{\emph{Claude Sonnet 4.6}} \\
+Typo injection & $-$0.100$^{*}$ & $-$0.144$^{*}$ & $-$0.128$^{*}$ & $-$0.124$^{*}$ & $-$0.121$^{*}$ \\
+Reordering & $-$0.143$^{*}$ & $-$0.172$^{*}$ & $-$0.175$^{*}$ & $-$0.151$^{*}$ & $-$0.149$^{*}$ \\
+Paraphrase$^\dagger$ & $-$0.091\phantom{$^{*}$} & $-$0.137$^{*}$ & $-$0.121$^{*}$ & $-$0.105$^{*}$ & $-$0.113$^{*}$ \\
+Verbosity red. & $-$0.119$^{*}$ & $-$0.175$^{*}$ & $-$0.127$^{*}$ & $-$0.162$^{*}$ & $-$0.152$^{*}$ \\
+Para.\,$\to$\,struct. & $-$0.157$^{*}$ & $-$0.211$^{*}$ & $-$0.192$^{*}$ & $-$0.167$^{*}$ & $-$0.201$^{*}$ \\
+Neutralize emot.$^\dagger$ & $-$0.105\phantom{$^{*}$} & $-$0.114$^{*}$ & $-$0.119$^{*}$ & $-$0.093\phantom{$^{*}$} & $-$0.085\phantom{$^{*}$} \\
+\multicolumn{6}{@{}l}{\emph{GPT-4o}} \\
+Typo injection$^\dagger$ & $-$0.050\phantom{$^{*}$} & $-$0.059\phantom{$^{*}$} & $-$0.098$^{*}$ & $-$0.107$^{*}$ & $-$0.102$^{*}$ \\
+Reordering$^\dagger$ & $-$0.095\phantom{$^{*}$} & $-$0.121$^{*}$ & $-$0.148$^{*}$ & $-$0.168$^{*}$ & $-$0.165$^{*}$ \\
+Paraphrase & $-$0.120$^{*}$ & $-$0.118$^{*}$ & $-$0.158$^{*}$ & $-$0.180$^{*}$ & $-$0.179$^{*}$ \\
+Verbosity red.$^\dagger$ & $-$0.085\phantom{$^{*}$} & $-$0.106$^{*}$ & $-$0.152$^{*}$ & $-$0.180$^{*}$ & $-$0.152$^{*}$ \\
+Para.\,$\to$\,struct. & $-$0.105$^{*}$ & $-$0.162$^{*}$ & $-$0.165$^{*}$ & $-$0.201$^{*}$ & $-$0.194$^{*}$ \\
+Neutralize emot. & $-$0.096$^{*}$ & $-$0.093$^{*}$ & $-$0.147$^{*}$ & $-$0.168$^{*}$ & $-$0.171$^{*}$ \\
+\bottomrule
+\end{tabular*}
+\end{table}

@@ -1,0 +1,1275 @@
+issue_id,repository,base_commit,pilot,rq3,gold_files,file_list_files,file_list_tokens,gold_patch
+astropy__astropy-12907,astropy/astropy,d16bfe05a744909de4b27f5875fe0d4ed41ce607,1,1,astropy/modeling/separable.py,481,5462,"diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+--- a/astropy/modeling/separable.py
++++ b/astropy/modeling/separable.py
+@@ -242,7 +242,7 @@ def _cstack(left, right):
+         cright = _coord_matrix(right, 'right', noutp)
+     else:
+         cright = np.zeros((noutp, right.shape[1]))
+-        cright[-right.shape[0]:, -right.shape[1]:] = 1
++        cright[-right.shape[0]:, -right.shape[1]:] = right
+ 
+     return np.hstack([cleft, cright])
+ 
+"
+astropy__astropy-14365,astropy/astropy,7269fa3e33e8d02485a647da91a5a2a60a06af61,1,1,astropy/io/ascii/qdp.py,498,5713,"diff --git a/astropy/io/ascii/qdp.py b/astropy/io/ascii/qdp.py
+--- a/astropy/io/ascii/qdp.py
++++ b/astropy/io/ascii/qdp.py
+@@ -68,7 +68,7 @@ def _line_type(line, delimiter=None):
+     _new_re = rf""NO({sep}NO)+""
+     _data_re = rf""({_decimal_re}|NO|[-+]?nan)({sep}({_decimal_re}|NO|[-+]?nan))*)""
+     _type_re = rf""^\s*((?P<command>{_command_re})|(?P<new>{_new_re})|(?P<data>{_data_re})?\s*(\!(?P<comment>.*))?\s*$""
+-    _line_type_re = re.compile(_type_re)
++    _line_type_re = re.compile(_type_re, re.IGNORECASE)
+     line = line.strip()
+     if not line:
+         return ""comment""
+@@ -306,7 +306,7 @@ def _get_tables_from_qdp_file(qdp_file, input_colnames=None, delimiter=None):
+ 
+             values = []
+             for v in line.split(delimiter):
+-                if v == ""NO"":
++                if v.upper() == ""NO"":
+                     values.append(np.ma.masked)
+                 else:
+                     # Understand if number is int or float
+"
+astropy__astropy-7746,astropy/astropy,d5bd3f68bb6d5ce3a61bdce9883ee750d1afade5,1,0,astropy/wcs/wcs.py,391,4319,"diff --git a/astropy/wcs/wcs.py b/astropy/wcs/wcs.py
+--- a/astropy/wcs/wcs.py
++++ b/astropy/wcs/wcs.py
+@@ -1212,6 +1212,9 @@ def _array_converter(self, func, sky, *args, ra_dec_order=False):
+         """"""
+ 
+         def _return_list_of_arrays(axes, origin):
++            if any([x.size == 0 for x in axes]):
++                return axes
++
+             try:
+                 axes = np.broadcast_arrays(*axes)
+             except ValueError:
+@@ -1235,6 +1238,8 @@ def _return_single_array(xy, origin):
+                 raise ValueError(
+                     ""When providing two arguments, the array must be ""
+                     ""of shape (N, {0})"".format(self.naxis))
++            if 0 in xy.shape:
++                return xy
+             if ra_dec_order and sky == 'input':
+                 xy = self._denormalize_sky(xy)
+             result = func(xy, origin)
+"
+django__django-11019,django/django,93e892bb645b16ebaf287beb5fe7f3ffe8d10408,0,1,django/forms/widgets.py,818,9899,"diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -6,16 +6,21 @@
+ import datetime
+ import re
+ import warnings
++from collections import defaultdict
+ from itertools import chain
+ 
+ from django.conf import settings
+ from django.forms.utils import to_current_timezone
+ from django.templatetags.static import static
+ from django.utils import datetime_safe, formats
++from django.utils.datastructures import OrderedSet
+ from django.utils.dates import MONTHS
+ from django.utils.formats import get_format
+ from django.utils.html import format_html, html_safe
+ from django.utils.safestring import mark_safe
++from django.utils.topological_sort import (
++    CyclicDependencyError, stable_topological_sort,
++)
+ from django.utils.translation import gettext_lazy as _
+ 
+ from .renderers import get_default_renderer
+@@ -59,22 +64,15 @@ def __str__(self):
+ 
+     @property
+     def _css(self):
+-        css = self._css_lists[0]
+-        # filter(None, ...) avoids calling merge with empty dicts.
+-        for obj in filter(None, self._css_lists[1:]):
+-            css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
+-                for medium in css.keys() | obj.keys()
+-            }
+-        return css
++        css = defaultdict(list)
++        for css_list in self._css_lists:
++            for medium, sublist in css_list.items():
++                css[medium].append(sublist)
++        return {medium: self.merge(*lists) for medium, lists in css.items()}
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+-        # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        return self.merge(*self._js_lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -115,39 +113,37 @@ def __getitem__(self, name):
+         raise KeyError('Unknown media type ""%s""' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge(*lists):
+         """"""
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
++        Merge lists while trying to keep the relative order of the elements.
++        Warn if the lists have the same elements in a different relative order.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """"""
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++        dependency_graph = defaultdict(set)
++        all_items = OrderedSet()
++        for list_ in filter(None, lists):
++            head = list_[0]
++            # The first items depend on nothing but have to be part of the
++            # dependency graph to be included in the result.
++            dependency_graph.setdefault(head, set())
++            for item in list_:
++                all_items.add(item)
++                # No self dependencies
++                if head != item:
++                    dependency_graph[item].add(head)
++                head = item
++        try:
++            return stable_topological_sort(all_items, dependency_graph)
++        except CyclicDependencyError:
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order: {}'.format(
++                    ', '.join(repr(l) for l in lists)
++                ), MediaOrderConflictWarning,
++            )
++            return list(all_items)
+ 
+     def __add__(self, other):
+         combined = Media()
+"
+django__django-11848,django/django,f0adf3b9b7a19cdee05368ff0c0c2d087f011180,0,0,django/utils/http.py,823,9945,"diff --git a/django/utils/http.py b/django/utils/http.py
+--- a/django/utils/http.py
++++ b/django/utils/http.py
+@@ -176,10 +176,14 @@ def parse_http_date(date):
+     try:
+         year = int(m.group('year'))
+         if year < 100:
+-            if year < 70:
+-                year += 2000
++            current_year = datetime.datetime.utcnow().year
++            current_century = current_year - (current_year % 100)
++            if year - (current_year % 100) > 50:
++                # year that appears to be more than 50 years in the future are
++                # interpreted as representing the past.
++                year += current_century - 100
+             else:
+-                year += 1900
++                year += current_century
+         month = MONTHS.index(m.group('mon').lower()) + 1
+         day = int(m.group('day'))
+         hour = int(m.group('hour'))
+"
+django__django-12453,django/django,b330b918e979ea39a21d47b61172d112caf432c3,0,1,django/db/backends/base/creation.py,825,9965,"diff --git a/django/db/backends/base/creation.py b/django/db/backends/base/creation.py
+--- a/django/db/backends/base/creation.py
++++ b/django/db/backends/base/creation.py
+@@ -6,6 +6,7 @@
+ from django.conf import settings
+ from django.core import serializers
+ from django.db import router
++from django.db.transaction import atomic
+ 
+ # The prefix to put on the default database name when creating
+ # the test database.
+@@ -126,8 +127,16 @@ def deserialize_db_from_string(self, data):
+         the serialize_db_to_string() method.
+         """"""
+         data = StringIO(data)
+-        for obj in serializers.deserialize(""json"", data, using=self.connection.alias):
+-            obj.save()
++        # Load data in a transaction to handle forward references and cycles.
++        with atomic(using=self.connection.alias):
++            # Disable constraint checks, because some databases (MySQL) doesn't
++            # support deferred checks.
++            with self.connection.constraint_checks_disabled():
++                for obj in serializers.deserialize('json', data, using=self.connection.alias):
++                    obj.save()
++            # Manually check for any invalid keys that might have been added,
++            # because constraint checks were disabled.
++            self.connection.check_constraints()
+ 
+     def _get_database_display_str(self, verbosity, database_name):
+         """"""
+"
+django__django-12700,django/django,d51c50d836c5cf8db5566da17963f871be554615,0,0,django/views/debug.py,827,10001,"diff --git a/django/views/debug.py b/django/views/debug.py
+--- a/django/views/debug.py
++++ b/django/views/debug.py
+@@ -90,6 +90,10 @@ def cleanse_setting(self, key, value):
+                 cleansed = self.cleansed_substitute
+             elif isinstance(value, dict):
+                 cleansed = {k: self.cleanse_setting(k, v) for k, v in value.items()}
++            elif isinstance(value, list):
++                cleansed = [self.cleanse_setting('', v) for v in value]
++            elif isinstance(value, tuple):
++                cleansed = tuple([self.cleanse_setting('', v) for v in value])
+             else:
+                 cleansed = value
+         except TypeError:
+"
+django__django-12708,django/django,447980e72ac01da1594dd3373a03ba40b7ee6f80,1,1,django/db/backends/base/schema.py,827,10001,"diff --git a/django/db/backends/base/schema.py b/django/db/backends/base/schema.py
+--- a/django/db/backends/base/schema.py
++++ b/django/db/backends/base/schema.py
+@@ -393,7 +393,12 @@ def alter_index_together(self, model, old_index_together, new_index_together):
+         news = {tuple(fields) for fields in new_index_together}
+         # Deleted indexes
+         for fields in olds.difference(news):
+-            self._delete_composed_index(model, fields, {'index': True}, self.sql_delete_index)
++            self._delete_composed_index(
++                model,
++                fields,
++                {'index': True, 'unique': False},
++                self.sql_delete_index,
++            )
+         # Created indexes
+         for field_names in news.difference(olds):
+             fields = [model._meta.get_field(field) for field in field_names]
+"
+django__django-13321,django/django,35b03788b0607c1f8d2b64e4fa9e1669b0907ea4,0,1,django/contrib/sessions/backends/base.py,849,10324,"diff --git a/django/contrib/sessions/backends/base.py b/django/contrib/sessions/backends/base.py
+--- a/django/contrib/sessions/backends/base.py
++++ b/django/contrib/sessions/backends/base.py
+@@ -121,6 +121,15 @@ def decode(self, session_data):
+             return signing.loads(session_data, salt=self.key_salt, serializer=self.serializer)
+         # RemovedInDjango40Warning: when the deprecation ends, handle here
+         # exceptions similar to what _legacy_decode() does now.
++        except signing.BadSignature:
++            try:
++                # Return an empty session if data is not in the pre-Django 3.1
++                # format.
++                return self._legacy_decode(session_data)
++            except Exception:
++                logger = logging.getLogger('django.security.SuspiciousSession')
++                logger.warning('Session data corrupted')
++                return {}
+         except Exception:
+             return self._legacy_decode(session_data)
+ 
+"
+django__django-13590,django/django,755dbf39fcdc491fe9b588358303e259c7750be4,0,0,django/db/models/sql/query.py,850,10335,"diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1077,10 +1077,14 @@ def resolve_lookup_value(self, value, can_reuse, allow_joins):
+         elif isinstance(value, (list, tuple)):
+             # The items of the iterable may be expressions and therefore need
+             # to be resolved independently.
+-            return type(value)(
++            values = (
+                 self.resolve_lookup_value(sub_value, can_reuse, allow_joins)
+                 for sub_value in value
+             )
++            type_ = type(value)
++            if hasattr(type_, '_make'):  # namedtuple
++                return type_(*values)
++            return type_(values)
+         return value
+ 
+     def solve_lookup_type(self, lookup):
+"
+django__django-13660,django/django,50c3ac6fa9b7c8a94a6d1dc87edf775e3bc4d575,0,0,django/core/management/commands/shell.py,851,10345,"diff --git a/django/core/management/commands/shell.py b/django/core/management/commands/shell.py
+--- a/django/core/management/commands/shell.py
++++ b/django/core/management/commands/shell.py
+@@ -84,13 +84,13 @@ def python(self, options):
+     def handle(self, **options):
+         # Execute the command and exit.
+         if options['command']:
+-            exec(options['command'])
++            exec(options['command'], globals())
+             return
+ 
+         # Execute stdin if it has anything to read and exit.
+         # Not supported on Windows due to select.select() limitations.
+         if sys.platform != 'win32' and not sys.stdin.isatty() and select.select([sys.stdin], [], [], 0)[0]:
+-            exec(sys.stdin.read())
++            exec(sys.stdin.read(), globals())
+             return
+ 
+         available_shells = [options['interface']] if options['interface'] else self.shells
+"
+django__django-14855,django/django,475cffd1d64c690cdad16ede4d5e81985738ceb4,0,0,django/contrib/admin/helpers.py,853,10368,"diff --git a/django/contrib/admin/helpers.py b/django/contrib/admin/helpers.py
+--- a/django/contrib/admin/helpers.py
++++ b/django/contrib/admin/helpers.py
+@@ -209,7 +209,11 @@ def get_admin_url(self, remote_field, remote_obj):
+             remote_field.model._meta.model_name,
+         )
+         try:
+-            url = reverse(url_name, args=[quote(remote_obj.pk)])
++            url = reverse(
++                url_name,
++                args=[quote(remote_obj.pk)],
++                current_app=self.model_admin.admin_site.name,
++            )
+             return format_html('<a href=""{}"">{}</a>', url, remote_obj)
+         except NoReverseMatch:
+             return str(remote_obj)
+"
+django__django-15347,django/django,7c4f3965098baad2396e24501e09237425a7bd6f,1,0,django/contrib/messages/storage/cookie.py,856,10404,"diff --git a/django/contrib/messages/storage/cookie.py b/django/contrib/messages/storage/cookie.py
+--- a/django/contrib/messages/storage/cookie.py
++++ b/django/contrib/messages/storage/cookie.py
+@@ -19,7 +19,7 @@ def default(self, obj):
+             # Using 0/1 here instead of False/True to produce more compact json
+             is_safedata = 1 if isinstance(obj.message, SafeData) else 0
+             message = [self.message_key, is_safedata, obj.level, obj.message]
+-            if obj.extra_tags:
++            if obj.extra_tags is not None:
+                 message.append(obj.extra_tags)
+             return message
+         return super().default(obj)
+"
+django__django-15814,django/django,5eb6a2b33d70b9889e1cafa12594ad6f80773d3a,1,0,django/db/models/sql/query.py,857,10422,"diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -748,6 +748,7 @@ def deferred_to_data(self, target):
+                     cur_model = source.related_model
+                 else:
+                     cur_model = source.remote_field.model
++                cur_model = cur_model._meta.concrete_model
+                 opts = cur_model._meta
+                 # Even if we're ""just passing through"" this model, we must add
+                 # both the current model's pk and the related reference field
+"
+django__django-16255,django/django,444b6da7cc229a58a2c476a52e45233001dc7073,0,1,django/contrib/sitemaps/__init__.py,859,10445,"diff --git a/django/contrib/sitemaps/__init__.py b/django/contrib/sitemaps/__init__.py
+--- a/django/contrib/sitemaps/__init__.py
++++ b/django/contrib/sitemaps/__init__.py
+@@ -167,7 +167,7 @@ def get_latest_lastmod(self):
+             return None
+         if callable(self.lastmod):
+             try:
+-                return max([self.lastmod(item) for item in self.items()])
++                return max([self.lastmod(item) for item in self.items()], default=None)
+             except TypeError:
+                 return None
+         else:
+"
+django__django-16379,django/django,1d0fa848e084cad62d0bb6bde3b51e4862558e57,0,1,django/core/cache/backends/filebased.py,863,10500,"diff --git a/django/core/cache/backends/filebased.py b/django/core/cache/backends/filebased.py
+--- a/django/core/cache/backends/filebased.py
++++ b/django/core/cache/backends/filebased.py
+@@ -90,10 +90,11 @@ def _delete(self, fname):
+ 
+     def has_key(self, key, version=None):
+         fname = self._key_to_file(key, version)
+-        if os.path.exists(fname):
++        try:
+             with open(fname, ""rb"") as f:
+                 return not self._is_expired(f)
+-        return False
++        except FileNotFoundError:
++            return False
+ 
+     def _cull(self):
+         """"""
+"
+django__django-16873,django/django,fce90950bef348803fa7cc3e6bc65f4bce429b82,0,1,django/template/defaultfilters.py,863,10507,"diff --git a/django/template/defaultfilters.py b/django/template/defaultfilters.py
+--- a/django/template/defaultfilters.py
++++ b/django/template/defaultfilters.py
+@@ -586,8 +586,9 @@ def join(value, arg, autoescape=True):
+     """"""Join a list with a string, like Python's ``str.join(list)``.""""""
+     try:
+         if autoescape:
+-            value = [conditional_escape(v) for v in value]
+-        data = conditional_escape(arg).join(value)
++            data = conditional_escape(arg).join([conditional_escape(v) for v in value])
++        else:
++            data = arg.join(value)
+     except TypeError:  # Fail silently if arg isn't iterable.
+         return value
+     return mark_safe(data)
+"
+matplotlib__matplotlib-22711,matplotlib/matplotlib,f670fe78795b18eb1118707721852209cd77ad51,0,0,lib/matplotlib/widgets.py,269,3050,"diff --git a/lib/matplotlib/widgets.py b/lib/matplotlib/widgets.py
+--- a/lib/matplotlib/widgets.py
++++ b/lib/matplotlib/widgets.py
+@@ -813,7 +813,10 @@ def _update_val_from_pos(self, pos):
+             val = self._max_in_bounds(pos)
+             self.set_max(val)
+         if self._active_handle:
+-            self._active_handle.set_xdata([val])
++            if self.orientation == ""vertical"":
++                self._active_handle.set_ydata([val])
++            else:
++                self._active_handle.set_xdata([val])
+ 
+     def _update(self, event):
+         """"""Update the slider position.""""""
+@@ -836,11 +839,16 @@ def _update(self, event):
+             return
+ 
+         # determine which handle was grabbed
+-        handle = self._handles[
+-            np.argmin(
++        if self.orientation == ""vertical"":
++            handle_index = np.argmin(
++                np.abs([h.get_ydata()[0] - event.ydata for h in self._handles])
++            )
++        else:
++            handle_index = np.argmin(
+                 np.abs([h.get_xdata()[0] - event.xdata for h in self._handles])
+             )
+-        ]
++        handle = self._handles[handle_index]
++
+         # these checks ensure smooth behavior if the handles swap which one
+         # has a higher value. i.e. if one is dragged over and past the other.
+         if handle is not self._active_handle:
+@@ -904,14 +912,22 @@ def set_val(self, val):
+             xy[2] = .75, val[1]
+             xy[3] = .75, val[0]
+             xy[4] = .25, val[0]
++
++            self._handles[0].set_ydata([val[0]])
++            self._handles[1].set_ydata([val[1]])
+         else:
+             xy[0] = val[0], .25
+             xy[1] = val[0], .75
+             xy[2] = val[1], .75
+             xy[3] = val[1], .25
+             xy[4] = val[0], .25
++
++            self._handles[0].set_xdata([val[0]])
++            self._handles[1].set_xdata([val[1]])
++
+         self.poly.xy = xy
+         self.valtext.set_text(self._format(val))
++
+         if self.drawon:
+             self.ax.figure.canvas.draw_idle()
+         self.val = val
+"
+matplotlib__matplotlib-23476,matplotlib/matplotlib,33a0599711d26dc2b79f851c6daed4947df7c167,0,0,lib/matplotlib/figure.py,255,2843,"diff --git a/lib/matplotlib/figure.py b/lib/matplotlib/figure.py
+--- a/lib/matplotlib/figure.py
++++ b/lib/matplotlib/figure.py
+@@ -3023,6 +3023,9 @@ def __getstate__(self):
+         # Set cached renderer to None -- it can't be pickled.
+         state[""_cachedRenderer""] = None
+ 
++        # discard any changes to the dpi due to pixel ratio changes
++        state[""_dpi""] = state.get('_original_dpi', state['_dpi'])
++
+         # add version information to the state
+         state['__mpl_version__'] = mpl.__version__
+ 
+"
+matplotlib__matplotlib-23563,matplotlib/matplotlib,149a0398b391cfc4eddb5e659f50b3c66f32ea65,0,1,lib/mpl_toolkits/mplot3d/art3d.py,255,2843,"diff --git a/lib/mpl_toolkits/mplot3d/art3d.py b/lib/mpl_toolkits/mplot3d/art3d.py
+--- a/lib/mpl_toolkits/mplot3d/art3d.py
++++ b/lib/mpl_toolkits/mplot3d/art3d.py
+@@ -171,6 +171,7 @@ def __init__(self, xs, ys, zs, *args, **kwargs):
+     def set_3d_properties(self, zs=0, zdir='z'):
+         xs = self.get_xdata()
+         ys = self.get_ydata()
++        zs = cbook._to_unmasked_float_array(zs).ravel()
+         zs = np.broadcast_to(zs, len(xs))
+         self._verts3d = juggle_axes(xs, ys, zs, zdir)
+         self.stale = True
+"
+matplotlib__matplotlib-23964,matplotlib/matplotlib,269c0b94b4fcf8b1135011c1556eac29dc09de15,1,1,lib/matplotlib/backends/backend_ps.py,256,2852,"diff --git a/lib/matplotlib/backends/backend_ps.py b/lib/matplotlib/backends/backend_ps.py
+--- a/lib/matplotlib/backends/backend_ps.py
++++ b/lib/matplotlib/backends/backend_ps.py
+@@ -665,8 +665,9 @@ def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
+                 curr_stream[1].append(
+                     (item.x, item.ft_object.get_glyph_name(item.glyph_idx))
+                 )
+-            # append the last entry
+-            stream.append(curr_stream)
++            # append the last entry if exists
++            if curr_stream:
++                stream.append(curr_stream)
+ 
+         self.set_color(*gc.get_rgb())
+ 
+"
+matplotlib__matplotlib-24149,matplotlib/matplotlib,af39f1edffcd828f05cfdd04f2e59506bb4a27bc,0,1,lib/matplotlib/axes/_axes.py,256,2852,"diff --git a/lib/matplotlib/axes/_axes.py b/lib/matplotlib/axes/_axes.py
+--- a/lib/matplotlib/axes/_axes.py
++++ b/lib/matplotlib/axes/_axes.py
+@@ -2182,11 +2182,19 @@ def _convert_dx(dx, x0, xconv, convert):
+                 x0 = cbook._safe_first_finite(x0)
+             except (TypeError, IndexError, KeyError):
+                 pass
++            except StopIteration:
++                # this means we found no finite element, fall back to first
++                # element unconditionally
++                x0 = cbook.safe_first_element(x0)
+ 
+             try:
+                 x = cbook._safe_first_finite(xconv)
+             except (TypeError, IndexError, KeyError):
+                 x = xconv
++            except StopIteration:
++                # this means we found no finite element, fall back to first
++                # element unconditionally
++                x = cbook.safe_first_element(xconv)
+ 
+             delist = False
+             if not np.iterable(dx):
+"
+matplotlib__matplotlib-24970,matplotlib/matplotlib,a3011dfd1aaa2487cce8aa7369475533133ef777,1,0,lib/matplotlib/colors.py,261,2914,"diff --git a/lib/matplotlib/colors.py b/lib/matplotlib/colors.py
+--- a/lib/matplotlib/colors.py
++++ b/lib/matplotlib/colors.py
+@@ -715,16 +715,17 @@ def __call__(self, X, alpha=None, bytes=False):
+         if not xa.dtype.isnative:
+             xa = xa.byteswap().newbyteorder()  # Native byteorder is faster.
+         if xa.dtype.kind == ""f"":
+-            with np.errstate(invalid=""ignore""):
+-                xa *= self.N
+-                # Negative values are out of range, but astype(int) would
+-                # truncate them towards zero.
+-                xa[xa < 0] = -1
+-                # xa == 1 (== N after multiplication) is not out of range.
+-                xa[xa == self.N] = self.N - 1
+-                # Avoid converting large positive values to negative integers.
+-                np.clip(xa, -1, self.N, out=xa)
+-                xa = xa.astype(int)
++            xa *= self.N
++            # Negative values are out of range, but astype(int) would
++            # truncate them towards zero.
++            xa[xa < 0] = -1
++            # xa == 1 (== N after multiplication) is not out of range.
++            xa[xa == self.N] = self.N - 1
++            # Avoid converting large positive values to negative integers.
++            np.clip(xa, -1, self.N, out=xa)
++        with np.errstate(invalid=""ignore""):
++            # We need this cast for unsigned ints as well as floats
++            xa = xa.astype(int)
+         # Set the over-range indices before the under-range;
+         # otherwise the under-range values get converted to over-range.
+         xa[xa > self.N - 1] = self._i_over
+"
+matplotlib__matplotlib-25079,matplotlib/matplotlib,66f7956984cbfc3647e867c6e5fde889a89c64ef,0,1,lib/matplotlib/colors.py,261,2914,"diff --git a/lib/matplotlib/colors.py b/lib/matplotlib/colors.py
+--- a/lib/matplotlib/colors.py
++++ b/lib/matplotlib/colors.py
+@@ -1362,8 +1362,12 @@ def inverse(self, value):
+ 
+     def autoscale(self, A):
+         """"""Set *vmin*, *vmax* to min, max of *A*.""""""
+-        self.vmin = self.vmax = None
+-        self.autoscale_None(A)
++        with self.callbacks.blocked():
++            # Pause callbacks while we are updating so we only get
++            # a single update signal at the end
++            self.vmin = self.vmax = None
++            self.autoscale_None(A)
++        self._changed()
+ 
+     def autoscale_None(self, A):
+         """"""If vmin or vmax are not set, use the min/max of *A* to set them.""""""
+"
+matplotlib__matplotlib-25442,matplotlib/matplotlib,73394f2b11321e03a5df199ec0196f27a728b0b0,0,1,lib/matplotlib/offsetbox.py,260,3121,"diff --git a/lib/matplotlib/offsetbox.py b/lib/matplotlib/offsetbox.py
+--- a/lib/matplotlib/offsetbox.py
++++ b/lib/matplotlib/offsetbox.py
+@@ -1500,16 +1500,23 @@ def __init__(self, ref_artist, use_blit=False):
+             ref_artist.set_picker(True)
+         self.got_artist = False
+         self._use_blit = use_blit and self.canvas.supports_blit
+-        self.cids = [
+-            self.canvas.callbacks._connect_picklable(
+-                'pick_event', self.on_pick),
+-            self.canvas.callbacks._connect_picklable(
+-                'button_release_event', self.on_release),
++        callbacks = ref_artist.figure._canvas_callbacks
++        self._disconnectors = [
++            functools.partial(
++                callbacks.disconnect, callbacks._connect_picklable(name, func))
++            for name, func in [
++                (""pick_event"", self.on_pick),
++                (""button_release_event"", self.on_release),
++                (""motion_notify_event"", self.on_motion),
++            ]
+         ]
+ 
+     # A property, not an attribute, to maintain picklability.
+     canvas = property(lambda self: self.ref_artist.figure.canvas)
+ 
++    cids = property(lambda self: [
++        disconnect.args[0] for disconnect in self._disconnectors[:2]])
++
+     def on_motion(self, evt):
+         if self._check_still_parented() and self.got_artist:
+             dx = evt.x - self.mouse_x
+@@ -1536,16 +1543,12 @@ def on_pick(self, evt):
+                 self.ref_artist.draw(
+                     self.ref_artist.figure._get_renderer())
+                 self.canvas.blit()
+-            self._c1 = self.canvas.callbacks._connect_picklable(
+-                ""motion_notify_event"", self.on_motion)
+             self.save_offset()
+ 
+     def on_release(self, event):
+         if self._check_still_parented() and self.got_artist:
+             self.finalize_offset()
+             self.got_artist = False
+-            self.canvas.mpl_disconnect(self._c1)
+-
+             if self._use_blit:
+                 self.ref_artist.set_animated(False)
+ 
+@@ -1558,14 +1561,8 @@ def _check_still_parented(self):
+ 
+     def disconnect(self):
+         """"""Disconnect the callbacks.""""""
+-        for cid in self.cids:
+-            self.canvas.mpl_disconnect(cid)
+-        try:
+-            c1 = self._c1
+-        except AttributeError:
+-            pass
+-        else:
+-            self.canvas.mpl_disconnect(c1)
++        for disconnector in self._disconnectors:
++            disconnector()
+ 
+     def save_offset(self):
+         pass
+"
+matplotlib__matplotlib-25498,matplotlib/matplotlib,78bf53caacbb5ce0dc7aa73f07a74c99f1ed919b,0,0,lib/matplotlib/colorbar.py,263,3152,"diff --git a/lib/matplotlib/colorbar.py b/lib/matplotlib/colorbar.py
+--- a/lib/matplotlib/colorbar.py
++++ b/lib/matplotlib/colorbar.py
+@@ -301,11 +301,6 @@ def __init__(self, ax, mappable=None, *, cmap=None,
+         if mappable is None:
+             mappable = cm.ScalarMappable(norm=norm, cmap=cmap)
+ 
+-        # Ensure the given mappable's norm has appropriate vmin and vmax
+-        # set even if mappable.draw has not yet been called.
+-        if mappable.get_array() is not None:
+-            mappable.autoscale_None()
+-
+         self.mappable = mappable
+         cmap = mappable.cmap
+         norm = mappable.norm
+@@ -1101,7 +1096,10 @@ def _process_values(self):
+             b = np.hstack((b, b[-1] + 1))
+ 
+         # transform from 0-1 to vmin-vmax:
++        if self.mappable.get_array() is not None:
++            self.mappable.autoscale_None()
+         if not self.norm.scaled():
++            # If we still aren't scaled after autoscaling, use 0, 1 as default
+             self.norm.vmin = 0
+             self.norm.vmax = 1
+         self.norm.vmin, self.norm.vmax = mtransforms.nonsingular(
+"
+mwaskom__seaborn-3010,mwaskom/seaborn,0f5a013e2cf43562deec3b879458e59a73853813,1,1,seaborn/_stats/regression.py,53,431,"diff --git a/seaborn/_stats/regression.py b/seaborn/_stats/regression.py
+--- a/seaborn/_stats/regression.py
++++ b/seaborn/_stats/regression.py
+@@ -38,7 +38,10 @@ def _fit_predict(self, data):
+ 
+     def __call__(self, data, groupby, orient, scales):
+ 
+-        return groupby.apply(data, self._fit_predict)
++        return (
++            groupby
++            .apply(data.dropna(subset=[""x"", ""y""]), self._fit_predict)
++        )
+ 
+ 
+ @dataclass
+"
+mwaskom__seaborn-3190,mwaskom/seaborn,4a9e54962a29c12a8b103d75f838e0e795a6974d,1,0,seaborn/_core/scales.py,57,463,"diff --git a/seaborn/_core/scales.py b/seaborn/_core/scales.py
+--- a/seaborn/_core/scales.py
++++ b/seaborn/_core/scales.py
+@@ -346,7 +346,7 @@ def _setup(
+                 vmin, vmax = data.min(), data.max()
+             else:
+                 vmin, vmax = new.norm
+-            vmin, vmax = axis.convert_units((vmin, vmax))
++            vmin, vmax = map(float, axis.convert_units((vmin, vmax)))
+             a = forward(vmin)
+             b = forward(vmax) - forward(vmin)
+ 
+"
+psf__requests-2148,psf/requests,fe693c492242ae532211e0c173324f09ca8cf227,1,1,requests/models.py,81,1042,"diff --git a/requests/models.py b/requests/models.py
+--- a/requests/models.py
++++ b/requests/models.py
+@@ -9,6 +9,7 @@
+ 
+ import collections
+ import datetime
++import socket
+ 
+ from io import BytesIO, UnsupportedOperation
+ from .hooks import default_hooks
+@@ -22,7 +23,7 @@
+ from .packages.urllib3.exceptions import DecodeError
+ from .exceptions import (
+     HTTPError, RequestException, MissingSchema, InvalidURL,
+-    ChunkedEncodingError, ContentDecodingError)
++    ChunkedEncodingError, ContentDecodingError, ConnectionError)
+ from .utils import (
+     guess_filename, get_auth_from_url, requote_uri,
+     stream_decode_response_unicode, to_key_val_list, parse_header_links,
+@@ -640,6 +641,8 @@ def generate():
+                     raise ChunkedEncodingError(e)
+                 except DecodeError as e:
+                     raise ContentDecodingError(e)
++                except socket.error as e:
++                    raise ConnectionError(e)
+             except AttributeError:
+                 # Standard file-like object.
+                 while True:
+"
+psf__requests-2317,psf/requests,091991be0da19de9108dbe5e3752917fea3d7fdc,1,0,requests/sessions.py,81,1042,"diff --git a/requests/sessions.py b/requests/sessions.py
+--- a/requests/sessions.py
++++ b/requests/sessions.py
+@@ -13,7 +13,7 @@
+ from datetime import datetime
+ 
+ from .auth import _basic_auth_str
+-from .compat import cookielib, OrderedDict, urljoin, urlparse, builtin_str
++from .compat import cookielib, OrderedDict, urljoin, urlparse
+ from .cookies import (
+     cookiejar_from_dict, extract_cookies_to_jar, RequestsCookieJar, merge_cookies)
+ from .models import Request, PreparedRequest, DEFAULT_REDIRECT_LIMIT
+@@ -425,7 +425,7 @@ def request(self, method, url,
+             If Tuple, ('cert', 'key') pair.
+         """"""
+ 
+-        method = builtin_str(method)
++        method = to_native_string(method)
+ 
+         # Create the Request.
+         req = Request(
+"
+pylint-dev__pylint-6506,pylint-dev/pylint,0a4204fd7555cfedd43f43017c94d24ef48244a5,1,1,pylint/config/config_initialization.py,167,1854,"diff --git a/pylint/config/config_initialization.py b/pylint/config/config_initialization.py
+--- a/pylint/config/config_initialization.py
++++ b/pylint/config/config_initialization.py
+@@ -81,8 +81,7 @@ def _config_initialization(
+             unrecognized_options.append(opt[1:])
+     if unrecognized_options:
+         msg = "", "".join(unrecognized_options)
+-        linter.add_message(""unrecognized-option"", line=0, args=msg)
+-        raise _UnrecognizedOptionError(options=unrecognized_options)
++        linter._arg_parser.error(f""Unrecognized option found: {msg}"")
+ 
+     # Set the current module to configuration as we don't know where
+     # the --load-plugins key is coming from
+"
+pylint-dev__pylint-7993,pylint-dev/pylint,e90702074e68e20dc8e5df5013ee3ecf22139c3e,1,0,pylint/reporters/text.py,184,2092,"diff --git a/pylint/reporters/text.py b/pylint/reporters/text.py
+--- a/pylint/reporters/text.py
++++ b/pylint/reporters/text.py
+@@ -175,7 +175,7 @@ def on_set_current_module(self, module: str, filepath: str | None) -> None:
+         self._template = template
+ 
+         # Check to see if all parameters in the template are attributes of the Message
+-        arguments = re.findall(r""\{(.+?)(:.*)?\}"", template)
++        arguments = re.findall(r""\{(\w+?)(:.*)?\}"", template)
+         for argument in arguments:
+             if argument[0] not in MESSAGE_FIELDS:
+                 warnings.warn(
+"
+pytest-dev__pytest-11143,pytest-dev/pytest,6995257cf470d2143ad1683824962de4071c0eb7,1,1,src/_pytest/assertion/rewrite.py,224,2996,"diff --git a/src/_pytest/assertion/rewrite.py b/src/_pytest/assertion/rewrite.py
+--- a/src/_pytest/assertion/rewrite.py
++++ b/src/_pytest/assertion/rewrite.py
+@@ -676,6 +676,7 @@ def run(self, mod: ast.Module) -> None:
+                 expect_docstring
+                 and isinstance(item, ast.Expr)
+                 and isinstance(item.value, ast.Constant)
++                and isinstance(item.value.value, str)
+             ):
+                 doc = item.value.value
+                 if self.is_rewrite_disabled(doc):
+"
+pytest-dev__pytest-7373,pytest-dev/pytest,7b77fc086aab8b3a8ebc890200371884555eea1e,1,0,src/_pytest/mark/evaluate.py,195,2609,"diff --git a/src/_pytest/mark/evaluate.py b/src/_pytest/mark/evaluate.py
+--- a/src/_pytest/mark/evaluate.py
++++ b/src/_pytest/mark/evaluate.py
+@@ -10,25 +10,14 @@
+ from ..outcomes import fail
+ from ..outcomes import TEST_OUTCOME
+ from .structures import Mark
+-from _pytest.config import Config
+ from _pytest.nodes import Item
+-from _pytest.store import StoreKey
+ 
+ 
+-evalcache_key = StoreKey[Dict[str, Any]]()
++def compiled_eval(expr: str, d: Dict[str, object]) -> Any:
++    import _pytest._code
+ 
+-
+-def cached_eval(config: Config, expr: str, d: Dict[str, object]) -> Any:
+-    default = {}  # type: Dict[str, object]
+-    evalcache = config._store.setdefault(evalcache_key, default)
+-    try:
+-        return evalcache[expr]
+-    except KeyError:
+-        import _pytest._code
+-
+-        exprcode = _pytest._code.compile(expr, mode=""eval"")
+-        evalcache[expr] = x = eval(exprcode, d)
+-        return x
++    exprcode = _pytest._code.compile(expr, mode=""eval"")
++    return eval(exprcode, d)
+ 
+ 
+ class MarkEvaluator:
+@@ -98,7 +87,7 @@ def _istrue(self) -> bool:
+                     self.expr = expr
+                     if isinstance(expr, str):
+                         d = self._getglobals()
+-                        result = cached_eval(self.item.config, expr, d)
++                        result = compiled_eval(expr, d)
+                     else:
+                         if ""reason"" not in mark.kwargs:
+                             # XXX better be checked at collection time
+"
+scikit-learn__scikit-learn-10508,scikit-learn/scikit-learn,c753b77ac49e72ebc0fe5e3c2369fe628f975017,0,1,sklearn/preprocessing/label.py,231,2496,"diff --git a/sklearn/preprocessing/label.py b/sklearn/preprocessing/label.py
+--- a/sklearn/preprocessing/label.py
++++ b/sklearn/preprocessing/label.py
+@@ -126,6 +126,9 @@ def transform(self, y):
+         """"""
+         check_is_fitted(self, 'classes_')
+         y = column_or_1d(y, warn=True)
++        # transform of empty array is empty array
++        if _num_samples(y) == 0:
++            return np.array([])
+ 
+         classes = np.unique(y)
+         if len(np.intersect1d(classes, self.classes_)) < len(classes):
+@@ -147,6 +150,10 @@ def inverse_transform(self, y):
+         y : numpy array of shape [n_samples]
+         """"""
+         check_is_fitted(self, 'classes_')
++        y = column_or_1d(y, warn=True)
++        # inverse transform of empty array is empty array
++        if _num_samples(y) == 0:
++            return np.array([])
+ 
+         diff = np.setdiff1d(y, np.arange(len(self.classes_)))
+         if len(diff):
+"
+scikit-learn__scikit-learn-13439,scikit-learn/scikit-learn,a62775e99f2a5ea3d51db7160fad783f6cd8a4c5,0,0,sklearn/pipeline.py,271,3207,"diff --git a/sklearn/pipeline.py b/sklearn/pipeline.py
+--- a/sklearn/pipeline.py
++++ b/sklearn/pipeline.py
+@@ -199,6 +199,12 @@ def _iter(self, with_final=True):
+             if trans is not None and trans != 'passthrough':
+                 yield idx, name, trans
+ 
++    def __len__(self):
++        """"""
++        Returns the length of the Pipeline
++        """"""
++        return len(self.steps)
++
+     def __getitem__(self, ind):
+         """"""Returns a sub-pipeline or a single esimtator in the pipeline
+ 
+"
+scikit-learn__scikit-learn-14087,scikit-learn/scikit-learn,a5743ed36fbd3fbc8e351bdab16561fbfca7dfa1,1,1,sklearn/linear_model/logistic.py,230,2473,"diff --git a/sklearn/linear_model/logistic.py b/sklearn/linear_model/logistic.py
+--- a/sklearn/linear_model/logistic.py
++++ b/sklearn/linear_model/logistic.py
+@@ -2170,7 +2170,7 @@ def fit(self, X, y, sample_weight=None):
+                 # Take the best scores across every fold and the average of
+                 # all coefficients corresponding to the best scores.
+                 best_indices = np.argmax(scores, axis=1)
+-                if self.multi_class == 'ovr':
++                if multi_class == 'ovr':
+                     w = np.mean([coefs_paths[i, best_indices[i], :]
+                                  for i in range(len(folds))], axis=0)
+                 else:
+@@ -2180,8 +2180,11 @@ def fit(self, X, y, sample_weight=None):
+                 best_indices_C = best_indices % len(self.Cs_)
+                 self.C_.append(np.mean(self.Cs_[best_indices_C]))
+ 
+-                best_indices_l1 = best_indices // len(self.Cs_)
+-                self.l1_ratio_.append(np.mean(l1_ratios_[best_indices_l1]))
++                if self.penalty == 'elasticnet':
++                    best_indices_l1 = best_indices // len(self.Cs_)
++                    self.l1_ratio_.append(np.mean(l1_ratios_[best_indices_l1]))
++                else:
++                    self.l1_ratio_.append(None)
+ 
+             if multi_class == 'multinomial':
+                 self.C_ = np.tile(self.C_, n_classes)
+"
+scikit-learn__scikit-learn-14983,scikit-learn/scikit-learn,06632c0d185128a53c57ccc73b25b6408e90bb89,1,0,sklearn/model_selection/_split.py,238,2564,"diff --git a/sklearn/model_selection/_split.py b/sklearn/model_selection/_split.py
+--- a/sklearn/model_selection/_split.py
++++ b/sklearn/model_selection/_split.py
+@@ -1163,6 +1163,9 @@ def get_n_splits(self, X=None, y=None, groups=None):
+                      **self.cvargs)
+         return cv.get_n_splits(X, y, groups) * self.n_repeats
+ 
++    def __repr__(self):
++        return _build_repr(self)
++
+ 
+ class RepeatedKFold(_RepeatedSplits):
+     """"""Repeated K-Fold cross validator.
+@@ -2158,6 +2161,8 @@ def _build_repr(self):
+         try:
+             with warnings.catch_warnings(record=True) as w:
+                 value = getattr(self, key, None)
++                if value is None and hasattr(self, 'cvargs'):
++                    value = self.cvargs.get(key, None)
+             if len(w) and w[0].category == DeprecationWarning:
+                 # if the parameter is deprecated, don't show it
+                 continue
+"
+scikit-learn__scikit-learn-25638,scikit-learn/scikit-learn,6adb209acd63825affc884abcd85381f148fb1b0,0,0,sklearn/utils/multiclass.py,267,2991,"diff --git a/sklearn/utils/multiclass.py b/sklearn/utils/multiclass.py
+--- a/sklearn/utils/multiclass.py
++++ b/sklearn/utils/multiclass.py
+@@ -155,14 +155,25 @@ def is_multilabel(y):
+     if hasattr(y, ""__array__"") or isinstance(y, Sequence) or is_array_api:
+         # DeprecationWarning will be replaced by ValueError, see NEP 34
+         # https://numpy.org/neps/nep-0034-infer-dtype-is-object.html
++        check_y_kwargs = dict(
++            accept_sparse=True,
++            allow_nd=True,
++            force_all_finite=False,
++            ensure_2d=False,
++            ensure_min_samples=0,
++            ensure_min_features=0,
++        )
+         with warnings.catch_warnings():
+             warnings.simplefilter(""error"", np.VisibleDeprecationWarning)
+             try:
+-                y = xp.asarray(y)
+-            except (np.VisibleDeprecationWarning, ValueError):
++                y = check_array(y, dtype=None, **check_y_kwargs)
++            except (np.VisibleDeprecationWarning, ValueError) as e:
++                if str(e).startswith(""Complex data not supported""):
++                    raise
++
+                 # dtype=object should be provided explicitly for ragged arrays,
+                 # see NEP 34
+-                y = xp.asarray(y, dtype=object)
++                y = check_array(y, dtype=object, **check_y_kwargs)
+ 
+     if not (hasattr(y, ""shape"") and y.ndim == 2 and y.shape[1] > 1):
+         return False
+@@ -302,15 +313,27 @@ def type_of_target(y, input_name=""""):
+     # https://numpy.org/neps/nep-0034-infer-dtype-is-object.html
+     # We therefore catch both deprecation (NumPy < 1.24) warning and
+     # value error (NumPy >= 1.24).
++    check_y_kwargs = dict(
++        accept_sparse=True,
++        allow_nd=True,
++        force_all_finite=False,
++        ensure_2d=False,
++        ensure_min_samples=0,
++        ensure_min_features=0,
++    )
++
+     with warnings.catch_warnings():
+         warnings.simplefilter(""error"", np.VisibleDeprecationWarning)
+         if not issparse(y):
+             try:
+-                y = xp.asarray(y)
+-            except (np.VisibleDeprecationWarning, ValueError):
++                y = check_array(y, dtype=None, **check_y_kwargs)
++            except (np.VisibleDeprecationWarning, ValueError) as e:
++                if str(e).startswith(""Complex data not supported""):
++                    raise
++
+                 # dtype=object should be provided explicitly for ragged arrays,
+                 # see NEP 34
+-                y = xp.asarray(y, dtype=object)
++                y = check_array(y, dtype=object, **check_y_kwargs)
+ 
+     # The old sequence of sequences format
+     try:
+"
+sympy__sympy-14396,sympy/sympy,f35ad6411f86a15dd78db39c29d1e5291f66f9b5,0,0,sympy/polys/polyoptions.py,632,6467,"diff --git a/sympy/polys/polyoptions.py b/sympy/polys/polyoptions.py
+--- a/sympy/polys/polyoptions.py
++++ b/sympy/polys/polyoptions.py
+@@ -405,7 +405,7 @@ class Domain(with_metaclass(OptionType, Option)):
+     _re_realfield = re.compile(r""^(R|RR)(_(\d+))?$"")
+     _re_complexfield = re.compile(r""^(C|CC)(_(\d+))?$"")
+     _re_finitefield = re.compile(r""^(FF|GF)\((\d+)\)$"")
+-    _re_polynomial = re.compile(r""^(Z|ZZ|Q|QQ)\[(.+)\]$"")
++    _re_polynomial = re.compile(r""^(Z|ZZ|Q|QQ|R|RR|C|CC)\[(.+)\]$"")
+     _re_fraction = re.compile(r""^(Z|ZZ|Q|QQ)\((.+)\)$"")
+     _re_algebraic = re.compile(r""^(Q|QQ)\<(.+)\>$"")
+ 
+@@ -459,8 +459,12 @@ def preprocess(cls, domain):
+ 
+                 if ground in ['Z', 'ZZ']:
+                     return sympy.polys.domains.ZZ.poly_ring(*gens)
+-                else:
++                elif ground in ['Q', 'QQ']:
+                     return sympy.polys.domains.QQ.poly_ring(*gens)
++                elif ground in ['R', 'RR']:
++                    return sympy.polys.domains.RR.poly_ring(*gens)
++                else:
++                    return sympy.polys.domains.CC.poly_ring(*gens)
+ 
+             r = cls._re_fraction.match(domain)
+ 
+"
+sympy__sympy-14817,sympy/sympy,0dbdc0ea83d339936da175f8c3a97d0d6bafb9f8,0,0,sympy/printing/pretty/pretty.py,636,6508,"diff --git a/sympy/printing/pretty/pretty.py b/sympy/printing/pretty/pretty.py
+--- a/sympy/printing/pretty/pretty.py
++++ b/sympy/printing/pretty/pretty.py
+@@ -825,7 +825,8 @@ def _print_MatAdd(self, expr):
+             if s is None:
+                 s = pform     # First element
+             else:
+-                if S(item.args[0]).is_negative:
++                coeff = item.as_coeff_mmul()[0]
++                if _coeff_isneg(S(coeff)):
+                     s = prettyForm(*stringPict.next(s, ' '))
+                     pform = self._print(item)
+                 else:
+"
+sympy__sympy-15678,sympy/sympy,31c68eef3ffef39e2e792b0ec92cd92b7010eb2a,0,1,sympy/geometry/util.py,687,7240,"diff --git a/sympy/geometry/util.py b/sympy/geometry/util.py
+--- a/sympy/geometry/util.py
++++ b/sympy/geometry/util.py
+@@ -570,12 +570,19 @@ def idiff(eq, y, x, n=1):
+         y = y[0]
+     elif isinstance(y, Symbol):
+         dep = {y}
++    elif isinstance(y, Function):
++        pass
+     else:
+-        raise ValueError(""expecting x-dependent symbol(s) but got: %s"" % y)
++        raise ValueError(""expecting x-dependent symbol(s) or function(s) but got: %s"" % y)
+ 
+     f = dict([(s, Function(
+         s.name)(x)) for s in eq.free_symbols if s != x and s in dep])
+-    dydx = Function(y.name)(x).diff(x)
++
++    if isinstance(y, Symbol):
++        dydx = Function(y.name)(x).diff(x)
++    else:
++        dydx = y.diff(x)
++
+     eq = eq.subs(f)
+     derivs = {}
+     for i in range(n):
+"
+sympy__sympy-16106,sympy/sympy,0e987498b00167fdd4a08a41c852a97cb70ce8f2,0,0,sympy/printing/mathml.py,687,7240,"diff --git a/sympy/printing/mathml.py b/sympy/printing/mathml.py
+--- a/sympy/printing/mathml.py
++++ b/sympy/printing/mathml.py
+@@ -1271,6 +1271,26 @@ def _print_Lambda(self, e):
+         return x
+ 
+ 
++    def _print_tuple(self, e):
++        x = self.dom.createElement('mfenced')
++        for i in e:
++            x.appendChild(self._print(i))
++        return x
++
++
++    def _print_IndexedBase(self, e):
++        return self._print(e.label)
++
++    def _print_Indexed(self, e):
++        x = self.dom.createElement('msub')
++        x.appendChild(self._print(e.base))
++        if len(e.indices) == 1:
++            x.appendChild(self._print(e.indices[0]))
++            return x
++        x.appendChild(self._print(e.indices))
++        return x
++
++
+ def mathml(expr, printer='content', **settings):
+     """"""Returns the MathML representation of expr. If printer is presentation then
+      prints Presentation MathML else prints content MathML.
+"
+sympy__sympy-17655,sympy/sympy,f5e965947af2410ded92cfad987aaf45262ea434,0,1,sympy/geometry/point.py,704,7425,"diff --git a/sympy/geometry/point.py b/sympy/geometry/point.py
+--- a/sympy/geometry/point.py
++++ b/sympy/geometry/point.py
+@@ -278,6 +278,10 @@ def __mul__(self, factor):
+         coords = [simplify(x*factor) for x in self.args]
+         return Point(coords, evaluate=False)
+ 
++    def __rmul__(self, factor):
++        """"""Multiply a factor by point's coordinates.""""""
++        return self.__mul__(factor)
++
+     def __neg__(self):
+         """"""Negate the point.""""""
+         coords = [-x for x in self.args]
+"
+sympy__sympy-18057,sympy/sympy,62000f37b8821573ba00280524ffb4ac4a380875,0,1,sympy/core/expr.py,713,7552,"diff --git a/sympy/core/expr.py b/sympy/core/expr.py
+--- a/sympy/core/expr.py
++++ b/sympy/core/expr.py
+@@ -121,7 +121,7 @@ def _hashable_content(self):
+ 
+     def __eq__(self, other):
+         try:
+-            other = sympify(other)
++            other = _sympify(other)
+             if not isinstance(other, Expr):
+                 return False
+         except (SympifyError, SyntaxError):
+"
+sympy__sympy-20049,sympy/sympy,d57aaf064041fe52c0fa357639b069100f8b28e1,1,0,sympy/physics/vector/point.py,761,8023,"diff --git a/sympy/physics/vector/point.py b/sympy/physics/vector/point.py
+--- a/sympy/physics/vector/point.py
++++ b/sympy/physics/vector/point.py
+@@ -483,19 +483,49 @@ def vel(self, frame):
+         Examples
+         ========
+ 
+-        >>> from sympy.physics.vector import Point, ReferenceFrame
++        >>> from sympy.physics.vector import Point, ReferenceFrame, dynamicsymbols
+         >>> N = ReferenceFrame('N')
+         >>> p1 = Point('p1')
+         >>> p1.set_vel(N, 10 * N.x)
+         >>> p1.vel(N)
+         10*N.x
+ 
++        Velocities will be automatically calculated if possible, otherwise a ``ValueError`` will be returned. If it is possible to calculate multiple different velocities from the relative points, the points defined most directly relative to this point will be used. In the case of inconsistent relative positions of points, incorrect velocities may be returned. It is up to the user to define prior relative positions and velocities of points in a self-consistent way.
++
++        >>> p = Point('p')
++        >>> q = dynamicsymbols('q')
++        >>> p.set_vel(N, 10 * N.x)
++        >>> p2 = Point('p2')
++        >>> p2.set_pos(p, q*N.x)
++        >>> p2.vel(N)
++        (Derivative(q(t), t) + 10)*N.x
++
+         """"""
+ 
+         _check_frame(frame)
+         if not (frame in self._vel_dict):
+-            raise ValueError('Velocity of point ' + self.name + ' has not been'
++            visited = []
++            queue = [self]
++            while queue: #BFS to find nearest point
++                node = queue.pop(0)
++                if node not in visited:
++                    visited.append(node)
++                    for neighbor, neighbor_pos in node._pos_dict.items():
++                        try:
++                            neighbor_pos.express(frame) #Checks if pos vector is valid
++                        except ValueError:
++                            continue
++                        try :
++                            neighbor_velocity = neighbor._vel_dict[frame] #Checks if point has its vel defined in req frame
++                        except KeyError:
++                            queue.append(neighbor)
++                            continue
++                        self.set_vel(frame, self.pos_from(neighbor).dt(frame) + neighbor_velocity)
++                        return self._vel_dict[frame]
++            else:
++                raise ValueError('Velocity of point ' + self.name + ' has not been'
+                              ' defined in ReferenceFrame ' + frame.name)
++
+         return self._vel_dict[frame]
+ 
+     def partial_velocity(self, frame, *gen_speeds):
+"
+sympy__sympy-22714,sympy/sympy,3ff4717b6aef6086e78f01cdfa06f64ae23aed7e,0,1,sympy/geometry/point.py,833,8831,"diff --git a/sympy/geometry/point.py b/sympy/geometry/point.py
+--- a/sympy/geometry/point.py
++++ b/sympy/geometry/point.py
+@@ -152,7 +152,7 @@ def __new__(cls, *args, **kwargs):
+                         'warn' or 'ignore'.'''))
+         if any(coords[dim:]):
+             raise ValueError('Nonzero coordinates cannot be removed.')
+-        if any(a.is_number and im(a) for a in coords):
++        if any(a.is_number and im(a).is_zero is False for a in coords):
+             raise ValueError('Imaginary coordinates are not permitted.')
+         if not all(isinstance(a, Expr) for a in coords):
+             raise TypeError('Coordinates must be valid SymPy expressions.')
+"
+sympy__sympy-23117,sympy/sympy,c5cef2499d6eed024b0db5c792d6ec7c53baa470,0,0,sympy/tensor/array/ndim_array.py,830,8806,"diff --git a/sympy/tensor/array/ndim_array.py b/sympy/tensor/array/ndim_array.py
+--- a/sympy/tensor/array/ndim_array.py
++++ b/sympy/tensor/array/ndim_array.py
+@@ -145,10 +145,12 @@ def __new__(cls, iterable, shape=None, **kwargs):
+ 
+     def _parse_index(self, index):
+         if isinstance(index, (SYMPY_INTS, Integer)):
+-            raise ValueError(""Only a tuple index is accepted"")
++            if index >= self._loop_size:
++                raise ValueError(""Only a tuple index is accepted"")
++            return index
+ 
+         if self._loop_size == 0:
+-            raise ValueError(""Index not valide with an empty array"")
++            raise ValueError(""Index not valid with an empty array"")
+ 
+         if len(index) != self._rank:
+             raise ValueError('Wrong number of array axes')
+@@ -194,6 +196,9 @@ def f(pointer):
+             if not isinstance(pointer, Iterable):
+                 return [pointer], ()
+ 
++            if len(pointer) == 0:
++                return [], (0,)
++
+             result = []
+             elems, shapes = zip(*[f(i) for i in pointer])
+             if len(set(shapes)) != 1:
+@@ -567,11 +572,11 @@ def _check_special_bounds(cls, flat_list, shape):
+ 
+     def _check_index_for_getitem(self, index):
+         if isinstance(index, (SYMPY_INTS, Integer, slice)):
+-            index = (index, )
++            index = (index,)
+ 
+         if len(index) < self.rank():
+-            index = tuple([i for i in index] + \
+-                          [slice(None) for i in range(len(index), self.rank())])
++            index = tuple(index) + \
++                          tuple(slice(None) for i in range(len(index), self.rank()))
+ 
+         if len(index) > self.rank():
+             raise ValueError('Dimension of index greater than rank of array')
+"
+sympy__sympy-24102,sympy/sympy,58598660a3f6ab3d918781c4988c2e4b2bdd9297,1,1,sympy/parsing/mathematica.py,833,8897,"diff --git a/sympy/parsing/mathematica.py b/sympy/parsing/mathematica.py
+--- a/sympy/parsing/mathematica.py
++++ b/sympy/parsing/mathematica.py
+@@ -654,7 +654,7 @@ def _from_mathematica_to_tokens(self, code: str):
+             code_splits[i] = code_split
+ 
+         # Tokenize the input strings with a regular expression:
+-        token_lists = [tokenizer.findall(i) if isinstance(i, str) else [i] for i in code_splits]
++        token_lists = [tokenizer.findall(i) if isinstance(i, str) and i.isascii() else [i] for i in code_splits]
+         tokens = [j for i in token_lists for j in i]
+ 
+         # Remove newlines at the beginning
+"
+sympy__sympy-24152,sympy/sympy,b9af885473ad7e34b5b0826cb424dd26d8934670,0,0,sympy/physics/quantum/tensorproduct.py,833,8897,"diff --git a/sympy/physics/quantum/tensorproduct.py b/sympy/physics/quantum/tensorproduct.py
+--- a/sympy/physics/quantum/tensorproduct.py
++++ b/sympy/physics/quantum/tensorproduct.py
+@@ -246,9 +246,12 @@ def _eval_expand_tensorproduct(self, **hints):
+             if isinstance(args[i], Add):
+                 for aa in args[i].args:
+                     tp = TensorProduct(*args[:i] + (aa,) + args[i + 1:])
+-                    if isinstance(tp, TensorProduct):
+-                        tp = tp._eval_expand_tensorproduct()
+-                    add_args.append(tp)
++                    c_part, nc_part = tp.args_cnc()
++                    # Check for TensorProduct object: is the one object in nc_part, if any:
++                    # (Note: any other object type to be expanded must be added here)
++                    if len(nc_part) == 1 and isinstance(nc_part[0], TensorProduct):
++                        nc_part = (nc_part[0]._eval_expand_tensorproduct(), )
++                    add_args.append(Mul(*c_part)*Mul(*nc_part))
+                 break
+ 
+         if add_args:
+"

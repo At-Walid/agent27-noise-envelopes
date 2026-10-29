@@ -1,0 +1,12 @@
+table,rows,cells,cells_changed,identical
+fig1_repeat_similarity,,,,yes
+fig2_conclusion_stability,,,,yes
+fig3_rq3_deviation,,,,yes
+rq1_backends,2.0,24.0,0.0,yes
+rq1_noise,2.0,42.0,0.0,yes
+rq1_noisy_issues,6.0,30.0,0.0,yes
+rq1_per_issue,100.0,1200.0,0.0,yes
+rq2_conclusion_stability,12.0,444.0,0.0,yes
+rq2_envelope,12.0,312.0,0.0,yes
+rq2_posthoc_typo,20.0,340.0,0.0,yes
+rq3_filelist,19.0,247.0,0.0,yes

@@ -1,0 +1,32 @@
+% rq3_filelist.tex: written by paper_analysis.py with rq3_filelist.csv; do not edit by hand.
+\begin{table}[t]
+\centering
+\caption{RQ3 (exploratory): Claude on the 25 RQ3 issues, the issue only (no list) vs.\ with the repository's file list in the prompt (list), paired by issue. $\Delta$: list minus no list; 95\% bootstrap CI (issues resampled); BH $q$ over the RQ3 family. Localization rate and patches outside the gold files: per issue, over all its scored runs. Identical: pairs of the 6 original runs (15 per issue) with byte-identical patches, or with the same changed lines (similarity 1).}
+\label{tab:rq3_filelist}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lrrrrr@{}}
+\toprule
+Measure & No list & List & $\Delta$ & 95\% CI & $q$ \\
+\midrule
+Repeat similarity & 0.748 & 0.697 & $-$0.051 & [$-$0.155, 0.060] & 0.381 \\
+Envelope width & 0.405 & 0.458 & 0.054 & [$-$0.091, 0.206] & 0.659 \\
+Localization rate & 0.904 & 0.883 & $-$0.021 & [$-$0.051, 0.003] & 0.381 \\
+Outside gold files & 0.113 & 0.117 & 0.004 & [$-$0.007, 0.016] & 0.659 \\
+\multicolumn{6}{@{}l}{\emph{Deviation from the envelope}} \\
+\enspace Typo injection & $-$0.138 & $-$0.056 & 0.082 & [$-$0.050, 0.208] & 0.381 \\
+\enspace Reordering & $-$0.192 & $-$0.078 & 0.115 & [0.003, 0.227] & 0.381 \\
+\enspace Paraphrase & $-$0.173 & $-$0.168 & 0.005 & [$-$0.136, 0.150] & 0.927 \\
+\enspace Verbosity red. & $-$0.196 & $-$0.132 & 0.065 & [$-$0.064, 0.192] & 0.381 \\
+\enspace Para.\,$\to$\,struct. & $-$0.193 & $-$0.107 & 0.086 & [$-$0.027, 0.210] & 0.381 \\
+\enspace Neutralize emot. & $-$0.132 & $-$0.055 & 0.077 & [$-$0.043, 0.204] & 0.381 \\
+\multicolumn{6}{@{}l}{\emph{Descriptive}} \\
+Identical (bytes) & 151/375 & 100/375 &  &  &  \\
+Identical (lines) & 166/375 & 123/375 &  &  &  \\
+Localized 6/6 / 0/6 & 22 / 1 & 22 / 3 &  &  &  \\
+Noisy issues & 2 & 0 &  &  &  \\
+Input tokens, mean & 1,611 & 7,867 &  &  &  \\
+Input tokens, max & 3,015 & 12,731 &  &  &  \\
+\bottomrule
+\end{tabular*}
+\end{table}

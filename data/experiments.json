@@ -1,0 +1,279 @@
+[
+  {
+    "experiment": "core",
+    "id": "ad6aa499-fae3-4c06-9996-b46185e1ec87",
+    "name": "AGENT-core",
+    "status": "completed",
+    "total_cost_usd": 7.730820999999993,
+    "config": {
+      "project": "agent2027",
+      "experiment_name": "core",
+      "description": "Core grid: 50 SWE-bench Lite issues (localizability rule of the earlier pilot, the 20 pilot issues included), LLM Baseline on Claude Sonnet 4.6 and GPT-4o, the 6 transformations of the earlier pilot with boundary-preserving reordering (v3), original + 5 repeats per issue and backend.",
+      "execution_mode": "real",
+      "agents": [
+        {
+          "name": "llm_baseline_claude",
+          "version": "1.0",
+          "params": {
+            "provider": "anthropic",
+            "model": "claude-sonnet-4-6",
+            "temperature": 0.0,
+            "max_tokens": 4096,
+            "timeout_seconds": 120,
+            "cost_cap_usd": 0.5
+          }
+        },
+        {
+          "name": "llm_baseline_gpt4o",
+          "version": "1.0",
+          "params": {
+            "provider": "openai",
+            "model": "gpt-4o",
+            "temperature": 0.0,
+            "max_tokens": 4096,
+            "timeout_seconds": 120,
+            "cost_cap_usd": 0.5
+          }
+        }
+      ],
+      "issues": {
+        "source": "swebench_lite",
+        "issue_ids": [
+          "astropy__astropy-12907",
+          "astropy__astropy-14365",
+          "astropy__astropy-7746",
+          "django__django-11019",
+          "django__django-11848",
+          "django__django-12453",
+          "django__django-12700",
+          "django__django-12708",
+          "django__django-13321",
+          "django__django-13590",
+          "django__django-13660",
+          "django__django-14855",
+          "django__django-15347",
+          "django__django-15814",
+          "django__django-16255",
+          "django__django-16379",
+          "django__django-16873",
+          "matplotlib__matplotlib-22711",
+          "matplotlib__matplotlib-23476",
+          "matplotlib__matplotlib-23563",
+          "matplotlib__matplotlib-23964",
+          "matplotlib__matplotlib-24149",
+          "matplotlib__matplotlib-24970",
+          "matplotlib__matplotlib-25079",
+          "matplotlib__matplotlib-25442",
+          "matplotlib__matplotlib-25498",
+          "mwaskom__seaborn-3010",
+          "mwaskom__seaborn-3190",
+          "psf__requests-2148",
+          "psf__requests-2317",
+          "pylint-dev__pylint-6506",
+          "pylint-dev__pylint-7993",
+          "pytest-dev__pytest-11143",
+          "pytest-dev__pytest-7373",
+          "scikit-learn__scikit-learn-10508",
+          "scikit-learn__scikit-learn-13439",
+          "scikit-learn__scikit-learn-14087",
+          "scikit-learn__scikit-learn-14983",
+          "scikit-learn__scikit-learn-25638",
+          "sympy__sympy-14396",
+          "sympy__sympy-14817",
+          "sympy__sympy-15678",
+          "sympy__sympy-16106",
+          "sympy__sympy-17655",
+          "sympy__sympy-18057",
+          "sympy__sympy-20049",
+          "sympy__sympy-22714",
+          "sympy__sympy-23117",
+          "sympy__sympy-24102",
+          "sympy__sympy-24152"
+        ]
+      },
+      "transformations": [
+        {
+          "name": "paraphrase",
+          "enabled": true,
+          "params": {},
+          "version": "5"
+        },
+        {
+          "name": "verbosity_reduction",
+          "enabled": true,
+          "params": {
+            "target_ratio": 0.5
+          },
+          "version": "5"
+        },
+        {
+          "name": "typo_injection",
+          "enabled": true,
+          "params": {
+            "error_rate": 0.02,
+            "seed": 42
+          },
+          "version": "2"
+        },
+        {
+          "name": "reordering",
+          "enabled": true,
+          "params": {
+            "seed": 42
+          },
+          "version": "3"
+        },
+        {
+          "name": "paragraph_to_structured",
+          "enabled": true,
+          "params": {},
+          "version": "6"
+        },
+        {
+          "name": "neutralize_emotional",
+          "enabled": true,
+          "params": {},
+          "version": "5"
+        }
+      ],
+      "runs_per_variant": 1,
+      "control_repeats": 5,
+      "cost_limit_usd": 15.0,
+      "output_dir": null,
+      "originals_only": false,
+      "reuse_variants_from": null,
+      "enabled": true,
+      "estimate": {
+        "cost_per_run_usd": {
+          "claude-sonnet-4-6": 0.0096,
+          "gpt-4o": 0.00486
+        },
+        "source": "mean cost of the paid runs of the earlier pilot (Claude Sonnet 4.6: 148 runs, $1.4213; GPT-4o: 148 runs, $0.7194), same prompt and settings, recomputed from that pilot's run records",
+        "extra_input_tokens_per_run": 0,
+        "assumption": null
+      }
+    },
+    "run_date": "2026-10-28"
+  },
+  {
+    "experiment": "filelist",
+    "id": "72e7798d-b1b3-47c8-994e-c37aa4b853da",
+    "name": "AGENT-filelist",
+    "status": "completed",
+    "total_cost_usd": 8.324273999999999,
+    "config": {
+      "project": "agent2027",
+      "experiment_name": "filelist",
+      "description": "RQ3 (optional): the RQ3 issues (25 of the 50 core issues, minus any whose file list exceeds the budget: none), LLM Baseline on Claude Sonnet 4.6 with the repository's whole file list at the issue's base commit in the prompt (Python sources outside tests/docs/examples/benchmarks, path order, never cut: file_list_truncate false), the 6 transformations, original + 5 repeats. The file lists of the 50 issues are built (shared/swebench/file_lists/); disabled until the core grid has run (enable it then).",
+      "execution_mode": "real",
+      "agents": [
+        {
+          "name": "llm_baseline_claude_filelist",
+          "version": "1.0",
+          "params": {
+            "provider": "anthropic",
+            "model": "claude-sonnet-4-6",
+            "temperature": 0.0,
+            "max_tokens": 4096,
+            "timeout_seconds": 120,
+            "cost_cap_usd": 0.5,
+            "prompt_variant": "file_list",
+            "file_list_max_tokens": 15000,
+            "file_list_truncate": false
+          }
+        }
+      ],
+      "issues": {
+        "source": "swebench_lite",
+        "issue_ids": [
+          "astropy__astropy-12907",
+          "astropy__astropy-14365",
+          "django__django-11019",
+          "django__django-12453",
+          "django__django-12708",
+          "django__django-13321",
+          "django__django-16255",
+          "django__django-16379",
+          "django__django-16873",
+          "matplotlib__matplotlib-23563",
+          "matplotlib__matplotlib-23964",
+          "matplotlib__matplotlib-24149",
+          "matplotlib__matplotlib-25079",
+          "matplotlib__matplotlib-25442",
+          "mwaskom__seaborn-3010",
+          "psf__requests-2148",
+          "pylint-dev__pylint-6506",
+          "pytest-dev__pytest-11143",
+          "scikit-learn__scikit-learn-10508",
+          "scikit-learn__scikit-learn-14087",
+          "sympy__sympy-15678",
+          "sympy__sympy-17655",
+          "sympy__sympy-18057",
+          "sympy__sympy-22714",
+          "sympy__sympy-24102"
+        ]
+      },
+      "transformations": [
+        {
+          "name": "paraphrase",
+          "enabled": true,
+          "params": {},
+          "version": "5"
+        },
+        {
+          "name": "verbosity_reduction",
+          "enabled": true,
+          "params": {
+            "target_ratio": 0.5
+          },
+          "version": "5"
+        },
+        {
+          "name": "typo_injection",
+          "enabled": true,
+          "params": {
+            "error_rate": 0.02,
+            "seed": 42
+          },
+          "version": "2"
+        },
+        {
+          "name": "reordering",
+          "enabled": true,
+          "params": {
+            "seed": 42
+          },
+          "version": "3"
+        },
+        {
+          "name": "paragraph_to_structured",
+          "enabled": true,
+          "params": {},
+          "version": "6"
+        },
+        {
+          "name": "neutralize_emotional",
+          "enabled": true,
+          "params": {},
+          "version": "5"
+        }
+      ],
+      "runs_per_variant": 1,
+      "control_repeats": 5,
+      "cost_limit_usd": 12.0,
+      "output_dir": null,
+      "originals_only": false,
+      "reuse_variants_from": null,
+      "enabled": true,
+      "estimate": {
+        "cost_per_run_usd": {
+          "claude-sonnet-4-6": 0.0096
+        },
+        "source": "mean cost of the paid Claude Sonnet 4.6 runs of the earlier pilot (148 runs, $1.4213), issue-only prompt",
+        "extra_input_tokens_per_run": 5945,
+        "assumption": "the mean size of the 25 RQ3 file lists as they enter the prompt (5945 tokens: every Python source outside tests/docs/examples/benchmarks, never cut; the largest is 10507 of the 15000-token budget), from data/file_list_stats.csv, estimated at 3 characters per token; the output length is assumed unchanged"
+      }
+    },
+    "run_date": "2026-10-28"
+  }
+]
